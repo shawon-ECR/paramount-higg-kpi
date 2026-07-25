@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 
 # Page configuration for mobile responsiveness
 st.set_page_config(
@@ -8,7 +7,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# Custom Styling to fix text visibility in both Dark & Light modes
+# Custom Styling for UI & Dark/Light mode visibility
 st.markdown("""
     <style>
     .main { padding: 1rem; }
@@ -33,102 +32,89 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🌱 Paramount ETP&ECR")
-st.caption("Paramount Textile PLC - Environmental Compliance & Sustainability Dashboard")
+st.caption("Paramount Textile PLC - Environmental Management & Cheat Sheet KPIs")
 
-# Navigation Tabs
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Resource KPIs", "🌿 Env KPIs", "🌍 Carbon Footprint", "📋 Higg Guide"])
+# Navigation Tabs matching the Cheat Sheet
+tab1, tab2, tab3, tab4 = st.tabs(["💧 Water & Waste", "⚡ Energy & Climate", "🧪 ETP & Pollution", "🔄 Unit Converter"])
 
-# TAB 1: Water & Energy KPIs
+# TAB 1: Water & Waste KPIs
 with tab1:
-    st.subheader("Production & Resource Input")
+    st.subheader("💧 Water Reuse & Waste Diversion KPIs")
     
-    production_kg = st.number_input("Total Production (Kg Fabric)", min_value=1.0, value=100000.0, step=1000.0)
+    production_kg = st.number_input("Total Production (Kg Fabric)", min_value=1.0, value=100000.0)
     
     col1, col2 = st.columns(2)
     with col1:
-        water_m3 = st.number_input("Water Consumed (m³)", min_value=0.0, value=6000.0)
-        grid_electricity_kwh = st.number_input("Grid Electricity (kWh)", min_value=0.0, value=120000.0)
+        fresh_water_m3 = st.number_input("Fresh Water Used (m³)", min_value=0.0, value=5000.0)
+        reused_water_m3 = st.number_input("Reused Water (m³)", min_value=0.0, value=1000.0)
     with col2:
-        natural_gas_m3 = st.number_input("Natural Gas (m³)", min_value=0.0, value=45000.0)
-        diesel_liter = st.number_input("Diesel Consumed (Liters)", min_value=0.0, value=1200.0)
-
-    # Resource KPI Calculations
-    water_liters = water_m3 * 1000
-    water_kpi = water_liters / production_kg  # Liters/Kg
-    
-    total_energy_kwh = grid_electricity_kwh + (natural_gas_m3 * 10.5) + (diesel_liter * 10.0)
-    energy_kpi = total_energy_kwh / production_kg  # kWh/Kg
-    
-    st.markdown("---")
-    st.subheader("🎯 Water & Energy KPIs")
-    
-    st.metric(label="💧 Water Intensity", value=f"{water_kpi:.2f} L/kg fabric")
-    if water_kpi <= 60:
-        st.success("✅ Water KPI is Best-in-Class (<= 60 L/kg)")
-    elif water_kpi <= 90:
-        st.warning("⚠️ Water KPI is Moderate (60-90 L/kg)")
-    else:
-        st.error("❌ High Water Usage (> 90 L/kg). Needs Action!")
-
-    st.metric(label="⚡ Energy Intensity", value=f"{energy_kpi:.2f} kWh/kg fabric")
-
-# TAB 2: Environmental & ETP KPIs
-with tab2:
-    st.subheader("🧪 ETP Efficiency & Environmental Metrics")
-    
-    col_a, col_b = st.columns(2)
-    with col_a:
-        influent_cod = st.number_input("Influent COD (mg/L)", min_value=1.0, value=1200.0)
-        effluent_cod = st.number_input("Effluent COD (mg/L)", min_value=0.0, value=110.0)
-        total_chemical_kg = st.number_input("Total Chemical Used (Kg)", min_value=0.0, value=15000.0)
-    with col_b:
-        sludge_produced_kg = st.number_input("ETP Sludge Produced (Kg)", min_value=0.0, value=2500.0)
         total_waste_kg = st.number_input("Total Solid Waste (Kg)", min_value=1.0, value=5000.0)
-        recycled_waste_kg = st.number_input("Recycled/Reused Waste (Kg)", min_value=0.0, value=4200.0)
+        recycled_waste_kg = st.number_input("Diverted/Recycled Waste (Kg)", min_value=0.0, value=4200.0)
 
-    # Calculations
-    etp_efficiency = ((influent_cod - effluent_cod) / influent_cod) * 100
-    chemical_kpi = total_chemical_kg / production_kg  # Kg Chemical / Kg Fabric
-    sludge_kpi = (sludge_produced_kg / production_kg) * 1000  # Gram Sludge / Kg Fabric
+    # Calculations (From Cheat Sheet Formulas)
+    total_water_m3 = fresh_water_m3 + reused_water_m3
+    water_reuse_rate = (reused_water_m3 / total_water_m3 * 100) if total_water_m3 > 0 else 0
+    water_intensity = (total_water_m3 * 1000) / production_kg  # Liters / Kg
     waste_diversion_rate = (recycled_waste_kg / total_waste_kg) * 100
 
     st.markdown("---")
-    st.subheader("📈 Calculated Environmental KPIs")
+    st.subheader("📊 Water & Waste Results")
+    st.metric(label="🔄 Water Reuse Rate (%)", value=f"{water_reuse_rate:.1f} %")
+    st.metric(label="💧 Water Intensity", value=f"{water_intensity:.2f} L/kg fabric")
+    st.metric(label="♻️ Waste Diversion Rate (%)", value=f"{waste_diversion_rate:.1f} %")
 
-    st.metric(label="⚙️ ETP COD Removal Efficiency", value=f"{etp_efficiency:.1f} %")
-    if etp_efficiency >= 85:
-        st.success("✅ ETP Treatment Efficiency is Optimal (>= 85%)")
-    else:
-        st.warning("⚠️ Low ETP Efficiency! Check biological/chemical dosing.")
+# TAB 2: Energy & GHG Climate KPIs
+with tab2:
+    st.subheader("⚡ Energy Intensity & Climate KPIs")
+    
+    col_a, col_b = st.columns(2)
+    with col_a:
+        electricity_kwh = st.number_input("Grid Electricity (kWh)", min_value=0.0, value=120000.0)
+        natural_gas_m3 = st.number_input("Natural Gas (m³)", min_value=0.0, value=45000.0)
+    with col_b:
+        diesel_liters = st.number_input("Diesel (Liters)", min_value=0.0, value=1200.0)
+        revenue_usd = st.number_input("Monthly Revenue (USD $)", min_value=1.0, value=500000.0)
 
-    st.metric(label="🧪 Chemical Intensity KPI", value=f"{chemical_kpi:.3f} kg chem/kg fabric")
-    st.metric(label="🍂 Sludge Generation KPI", value=f"{sludge_kpi:.2f} g sludge/kg fabric")
-    st.metric(label="♻️ Waste Diversion Rate", value=f"{waste_diversion_rate:.1f} %")
+    # Convert energy to GJ (1 kWh = 0.0036 GJ)
+    total_kwh = electricity_kwh + (natural_gas_m3 * 10.5) + (diesel_liters * 10.0)
+    total_gj = total_kwh * 0.0036
+    
+    # GHG Emissions (Scope 1 & 2)
+    scope_1_mt = ((natural_gas_m3 * 1.98) + (diesel_liters * 2.68)) / 1000
+    scope_2_mt = (electricity_kwh * 0.55) / 1000
+    total_ghg_mt = scope_1_mt + scope_2_mt
+    
+    # Cheat Sheet Intensity Metrics
+    ghg_revenue_intensity = total_ghg_mt / (revenue_usd / 1000000) # tCO2e / Million USD
 
-# TAB 3: Carbon Footprint
+    st.markdown("---")
+    st.subheader("📊 Energy & GHG Results")
+    st.metric(label="⚡ Total Energy Consumed (GJ)", value=f"{total_gj:.2f} GJ")
+    st.metric(label="🔥 Total GHG Emissions", value=f"{total_ghg_mt:.2f} tCO₂e")
+    st.metric(label="🌍 GHG Intensity (Revenue Based)", value=f"{ghg_revenue_intensity:.2f} tCO₂e / $1M")
+
+# TAB 3: ETP & Pollution
 with tab3:
-    st.subheader("💨 Carbon Footprint (GHG Emissions)")
+    st.subheader("🧪 ETP Pollution Removal Efficiency")
     
-    ng_ghg = natural_gas_m3 * 1.98     # kg CO2e per m3 Natural Gas
-    diesel_ghg = diesel_liter * 2.68   # kg CO2e per Liter Diesel
-    scope_1_total = (ng_ghg + diesel_ghg) / 1000 # Metric Tons CO2e
+    influent_cod = st.number_input("Influent COD (mg/L)", min_value=1.0, value=1200.0)
+    effluent_cod = st.number_input("Effluent COD (mg/L)", min_value=0.0, value=110.0)
     
-    grid_ghg = grid_electricity_kwh * 0.55  # kg CO2e per kWh
-    scope_2_total = grid_ghg / 1000 # Metric Tons CO2e
+    etp_efficiency = ((influent_cod - effluent_cod) / influent_cod) * 100
     
-    total_ghg_tons = scope_1_total + scope_2_total
-    ghg_intensity = (total_ghg_tons * 1000) / production_kg # Kg CO2e / Kg Fabric
-    
-    st.metric(label="🔥 Scope 1 Emissions (Direct)", value=f"{scope_1_total:.2f} MT CO₂e")
-    st.metric(label="🔌 Scope 2 Emissions (Grid)", value=f"{scope_2_total:.2f} MT CO₂e")
-    st.metric(label="🌱 Total GHG Intensity", value=f"{ghg_intensity:.3f} kg CO₂e / kg fabric")
+    st.markdown("---")
+    st.metric(label="⚙️ ETP Removal Efficiency (%)", value=f"{etp_efficiency:.1f} %")
 
-# TAB 4: Higg Guidance
+# TAB 4: Unit Conversion Calculator
 with tab4:
-    st.subheader("📌 Higg FEM 4.0 Standard Benchmark")
-    st.write("""
-    * **Water Intensity Target:** Ideally **< 60 Liters/Kg Fabric**.
-    * **ETP Efficiency Target:** COD Removal Efficiency should be **> 85-90%**.
-    * **Waste Diversion Target:** Zero Waste to Landfill requires **> 90% Waste Diversion Rate**.
-    * **GHG Target:** Annual Scope 1 & 2 reduction aligned with SBTi (4.2% linear annual reduction).
-    """)
+    st.subheader("🔄 Unit Conversions (Cheat Sheet Section 8)")
+    
+    conv_type = st.selectbox("Select Conversion", ["m³ to Liters", "kWh to GJ", "MT (Tonnes) to Kg"])
+    input_val = st.number_input("Enter Value to Convert", min_value=0.0, value=10.0)
+    
+    if conv_type == "m³ to Liters":
+        st.success(f"{input_val} m³ = **{input_val * 1000:,.0f} Liters**")
+    elif conv_type == "kWh to GJ":
+        st.success(f"{input_val} kWh = **{input_val * 0.0036:,.4f} GJ**")
+    elif conv_type == "MT (Tonnes) to Kg":
+        st.success(f"{input_val} MT = **{input_val * 1000:,.0f} Kg**")

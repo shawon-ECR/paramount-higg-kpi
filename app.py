@@ -1,5 +1,6 @@
 import streamlit as st
 import io
+import pandas as pd
 from supabase import create_client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -12,7 +13,7 @@ from reportlab.lib import colors
 st.set_page_config(
     page_title="TexPulse | Textile Sustainability & Savings",
     page_icon="🫀",
-    layout="centered"
+    layout="wide"
 )
 
 # Custom Styling
@@ -167,12 +168,13 @@ def generate_pdf_report(factory_name, reporting_month, production_kg, water_kpi,
 # ----------------------------------------------------
 # 4. APP TABS & INTERFACE
 # ----------------------------------------------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "💧 Water & Energy", 
     "🧪 ETP & Waste", 
     "💰 Cost & Savings",
     "🌍 GHG Climate", 
-    "📄 PDF Audit Report"
+    "📄 PDF Audit Report",
+    "📊 Historical Analytics"
 ])
 
 # Tab 1: Water & Energy
@@ -273,4 +275,101 @@ with tab5:
             data=pdf_bytes,
             file_name=f"TexPulse_Audit_{factory_name.replace(' ', '_')}.pdf",
             mime="application/pdf"
-                            )
+        )
+
+# Tab 6: Historical Analytics & Trend Dashboard
+with tab6:
+    st.subheader("📊 Historical Analytics & Performance Dashboard")
+    st.caption("Live data retrieved directly from Supabase Cloud Database")
+
+    if not supabase:
+        st.error("🔴 Database Disconnected. Please configure Streamlit Secrets.")
+    else:
+        try:
+            # Fetch all records from factory_records table
+            response = supabase.table("factory_records").select("*").order("id", desc=False).execute()
+            records = response.data
+
+            if not records:
+                st.info("ℹ️ No historical records found in the database. Save some records from the PDF Audit Report tab first!")
+            else:
+                df = pd.DataFrame(records)
+
+                # Filter options
+                factories = ["All Factories"] + list(df["factory_name"].unique())
+                selected_factory = st.selectbox("🏢 Filter by Factory", factories)
+
+                if selected_factory != "All Factories":
+                    filtered_df = df[df["factory_name"] == selected_factory]
+                else:
+                    filtered_df = df.copy()
+
+                # Executive Summary Metrics
+                st.markdown("### 📈 Executive Summary")
+                m1, m2, m3, m4 = st.columns(4)
+                with m1:
+                    st.metric("Total Records Logged", f"{len(filtered_df)}")
+                with m2:
+                    avg_water = filtered_df["water_kpi"].mean() if "water_kpi" in filtered_df else 0
+                    st.metric("💧 Avg Water KPI", f"{avg_water:.2f} L/kg")
+                with m3:
+                    tot_savings = filtered_df["monthly_savings"].sum() if "monthly_savings" in filtered_df else 0
+                    st.metric("💰 Total Savings Logged", f"৳ {tot_savings:,.0f}")
+                with m4:
+                    tot_ghg = filtered_df["total_ghg"].sum() if "total_ghg" in filtered_df else 0
+                    st.metric("🌱 Total GHG Emissions", f"{tot_ghg:.2f} tCO₂e")
+
+                st.divider()
+
+                # Trend Charts
+                st.markdown("### 📉 Resource & Performance Trends")
+                
+                c_chart1, c_chart2 = st.columns(2)
+                
+                with c_chart1:
+                    st.markdown("#### 💧 Water KPI Trend (L/kg fabric)")
+                    if "reporting_month" in filtered_df and "water_kpi" in filtered_df:
+                        chart_water = filtered_df[["reporting_month", "water_kpi"]].set_index("reporting_month")
+                        st.line_chart(chart_water)
+
+                with c_chart2:
+                    st.markdown("#### ⚡ Energy KPI Trend (kWh/kg fabric)")
+                    if "reporting_month" in filtered_df and "energy_kpi" in filtered_df:
+                        chart_energy = filtered_df[["reporting_month", "energy_kpi"]].set_index("reporting_month")
+                        st.line_chart(chart_energy)
+
+                c_chart3, c_chart4 = st.columns(2)
+                
+                with c_chart3:
+                    st.markdown("#### 💰 Monthly Financial Savings (BDT)")
+                    if "reporting_month" in filtered_df and "monthly_savings" in filtered_df:
+                        chart_savings = filtered_df[["reporting_month", "monthly_savings"]].set_index("reporting_month")
+                        st.bar_chart(chart_savings)
+
+                with c_chart4:
+                    st.markdown("#### 🌱 Carbon Footprint (tCO₂e)")
+                    if "reporting_month" in filtered_df and "total_ghg" in filtered_df:
+                        chart_ghg = filtered_df[["reporting_month", "total_ghg"]].set_index("reporting_month")
+                        st.area_chart(chart_ghg)
+
+                st.divider()
+
+                # Raw Data Table & CSV Download
+                st.markdown("### 📋 Historical Audit Data Table")
+                
+                display_cols = ["id", "factory_name", "reporting_month", "production_kg", "water_kpi", "energy_kpi", "monthly_savings", "total_ghg", "user_email"]
+                available_cols = [c for c in display_cols if c in filtered_df.columns]
+                
+                st.dataframe(filtered_df[available_cols], use_container_width=True)
+
+                # Export to CSV
+                csv_data = filtered_df[available_cols].to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Export Historical Data to CSV",
+                    data=csv_data,
+                    file_name="TexPulse_Historical_Analytics.csv",
+                    mime="text/csv"
+                )
+
+        except Exception as e:
+            st.error(f"❌ Error loading analytics: {e}")

@@ -45,11 +45,11 @@ st.markdown("""
 @st.cache_resource
 def init_supabase():
     try:
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets["SUPABASE_KEY"]
+        url = st.secrets["SUPABASE_URL"].strip()
+        key = st.secrets["SUPABASE_KEY"].strip()
         return create_client(url, key)
     except Exception as e:
-        st.error(f"Database Connection Error: {e}")
+        st.error(f"Database Connection Setup Error: {e}")
         return None
 
 supabase = init_supabase()
@@ -244,20 +244,23 @@ with tab5:
     with col_btn1:
         if st.button("☁️ Save Record to Cloud DB"):
             if supabase:
-                data = {
-                    "user_email": st.session_state.user_email,
-                    "factory_name": factory_name,
-                    "reporting_month": reporting_month,
-                    "production_kg": production_kg,
-                    "water_kpi": round(water_kpi, 2),
-                    "energy_kpi": round(energy_kpi_kwh, 2),
-                    "monthly_savings": round(monthly_savings, 2),
-                    "total_ghg": round(total_ghg_mt, 2)
-                }
-                res = supabase.table("factory_records").insert(data).execute()
-                st.success("✅ Data saved successfully to Supabase Database!")
+                try:
+                    data = {
+                        "user_email": st.session_state.user_email,
+                        "factory_name": factory_name,
+                        "reporting_month": reporting_month,
+                        "production_kg": float(production_kg),
+                        "water_kpi": round(float(water_kpi), 2),
+                        "energy_kpi": round(float(energy_kpi_kwh), 2),
+                        "monthly_savings": round(float(monthly_savings), 2),
+                        "total_ghg": round(float(total_ghg_mt), 2)
+                    }
+                    res = supabase.table("factory_records").insert(data).execute()
+                    st.success("✅ Data saved successfully to Supabase Database!")
+                except Exception as e:
+                    st.error(f"❌ DB Insert Error: {e}")
             else:
-                st.error("Database connection missing.")
+                st.error("Database Connection Missing.")
 
     with col_btn2:
         pdf_bytes = generate_pdf_report(
@@ -270,4 +273,4 @@ with tab5:
             data=pdf_bytes,
             file_name=f"TexPulse_Audit_{factory_name.replace(' ', '_')}.pdf",
             mime="application/pdf"
-        )
+                            )

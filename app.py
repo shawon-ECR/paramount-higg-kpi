@@ -270,4 +270,4 @@ with tab5:
             data=pdf_bytes,
             file_name=f"TexPulse_Audit_{factory_name.replace(' ', '_')}.pdf",
             mime="application/pdf"
-                            )
+        )

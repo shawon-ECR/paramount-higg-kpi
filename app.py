@@ -73,10 +73,64 @@ with st.sidebar:
         st.error("🔴 Database Disconnected")
 
 # ----------------------------------------------------
-# 3. PDF REPORT GENERATOR ENGINE
+# 3. HIGG FEM & ZDHC SCORING ENGINE
+# ----------------------------------------------------
+def calculate_compliance_scores(water_kpi, energy_kpi, cod_eff, bod_eff):
+    if water_kpi <= 50:
+        water_level = "Level 3 (World Class)"
+        water_score = 100
+    elif water_kpi <= 80:
+        water_level = "Level 2 (Good Practice)"
+        water_score = 70
+    else:
+        water_level = "Level 1 (Baseline / Action Needed)"
+        water_score = 40
+
+    if energy_kpi <= 2.5:
+        energy_level = "Level 3 (Highly Efficient)"
+        energy_score = 100
+    elif energy_kpi <= 4.0:
+        energy_level = "Level 2 (Moderate Efficiency)"
+        energy_score = 70
+    else:
+        energy_level = "Level 1 (High Consumption)"
+        energy_score = 40
+
+    if cod_eff >= 85 and bod_eff >= 90:
+        etp_status = "ZDHC & DOE Compliant (Pass)"
+        etp_score = 100
+    elif cod_eff >= 75:
+        etp_status = "DOE Compliant / ZDHC Partial"
+        etp_score = 70
+    else:
+        etp_status = "Non-Compliant / High Risk"
+        etp_score = 30
+
+    overall_score = round((water_score * 0.35) + (energy_score * 0.35) + (etp_score * 0.30), 1)
+    
+    if overall_score >= 85:
+        overall_badge = "🟢 Gold / High Compliance"
+    elif overall_score >= 65:
+        overall_badge = "🟡 Silver / Satisfactory"
+    else:
+        overall_badge = "🔴 Bronze / Action Required"
+
+    return {
+        "water_level": water_level,
+        "water_score": water_score,
+        "energy_level": energy_level,
+        "energy_score": energy_score,
+        "etp_status": etp_status,
+        "etp_score": etp_score,
+        "overall_score": overall_score,
+        "overall_badge": overall_badge
+    }
+
+# ----------------------------------------------------
+# 4. PDF REPORT GENERATOR ENGINE
 # ----------------------------------------------------
 def generate_pdf_report(factory_name, reporting_month, production_kg, water_kpi, energy_kpi, 
-                        cod_eff, bod_eff, monthly_savings, yearly_savings, scope1, scope2, total_ghg):
+                        cod_eff, bod_eff, monthly_savings, yearly_savings, scope1, scope2, total_ghg, comp_data):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
     story = []
@@ -89,12 +143,11 @@ def generate_pdf_report(factory_name, reporting_month, production_kg, water_kpi,
     story.append(Paragraph("🫀 TexPulse Executive Audit Report", title_style))
     story.append(Paragraph("The Heartbeat of Textile Sustainability & Savings | Compliance & ROI Engine", subtitle_style))
     
-    # Meta Info
     meta_data = [
         [Paragraph("<b>Factory Name:</b>", styles['Normal']), Paragraph(factory_name, styles['Normal']),
          Paragraph("<b>Reporting Month:</b>", styles['Normal']), Paragraph(reporting_month, styles['Normal'])],
         [Paragraph("<b>Standard:</b>", styles['Normal']), Paragraph("Higg FEM 4.0 / ZDHC / DOE", styles['Normal']),
-         Paragraph("<b>Status:</b>", styles['Normal']), Paragraph("Verified Audit Data", styles['Normal'])]
+         Paragraph("<b>Status:</b>", styles['Normal']), Paragraph(f"<b>{comp_data['overall_badge']}</b>", styles['Normal'])]
     ]
     t_meta = Table(meta_data, colWidths=[100, 160, 100, 160])
     t_meta.setStyle(TableStyle([
@@ -105,13 +158,33 @@ def generate_pdf_report(factory_name, reporting_month, production_kg, water_kpi,
     story.append(t_meta)
     story.append(Spacer(1, 10))
     
-    # KPIs Table
-    story.append(Paragraph("1. Resource & Environmental KPIs", heading_style))
+    story.append(Paragraph("1. Higg FEM 4.0 & ZDHC Compliance Scorecard", heading_style))
+    score_table_data = [
+        ["Compliance Area", "Measured Value", "Higg FEM / ZDHC Rating", "Score Points"],
+        ["Water Intensity", f"{water_kpi:.2f} L/kg", comp_data['water_level'], f"{comp_data['water_score']} / 100"],
+        ["Energy Efficiency", f"{energy_kpi:.2f} kWh/kg", comp_data['energy_level'], f"{comp_data['energy_score']} / 100"],
+        ["Wastewater (ETP)", f"COD {cod_eff:.1f}%, BOD {bod_eff:.1f}%", comp_data['etp_status'], f"{comp_data['etp_score']} / 100"],
+        ["OVERALL HIGG SCORE", "-", comp_data['overall_badge'], f"{comp_data['overall_score']} / 100"]
+    ]
+    t_score = Table(score_table_data, colWidths=[130, 130, 160, 100])
+    t_score.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0f172a')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('PADDING', (0,0), (-1,-1), 5),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#e2e8f0')),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+    ]))
+    story.append(t_score)
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph("2. Resource & Environmental KPIs", heading_style))
     kpi_data = [
         ["Metric Description", "Value", "Benchmark Status"],
         ["Total Fabric Production", f"{production_kg:,.0f} Kg", "Baseline Volume"],
-        ["Water Intensity KPI", f"{water_kpi:.2f} L/kg fabric", "Best-in-Class" if water_kpi <= 60 else "Moderate"],
-        ["Energy Intensity KPI", f"{energy_kpi:.2f} kWh/kg fabric", "Optimized"],
+        ["Water Intensity KPI", f"{water_kpi:.2f} L/kg fabric", comp_data['water_level']],
+        ["Energy Intensity KPI", f"{energy_kpi:.2f} kWh/kg fabric", comp_data['energy_level']],
         ["COD Removal Efficiency", f"{cod_eff:.1f} %", "DOE Compliant"],
         ["BOD Removal Efficiency", f"{bod_eff:.1f} %", "DOE Compliant"]
     ]
@@ -126,8 +199,7 @@ def generate_pdf_report(factory_name, reporting_month, production_kg, water_kpi,
     story.append(t_kpi)
     story.append(Spacer(1, 10))
 
-    # Financial Savings
-    story.append(Paragraph("2. TexPulse Financial ROI Engine", heading_style))
+    story.append(Paragraph("3. TexPulse Financial ROI Engine", heading_style))
     fin_data = [
         ["Financial Impact", "Monthly Savings (BDT)", "Annual Savings (BDT)"],
         ["Resource Optimization", f"BDT {monthly_savings:,.0f}", f"BDT {yearly_savings:,.0f}"]
@@ -143,8 +215,7 @@ def generate_pdf_report(factory_name, reporting_month, production_kg, water_kpi,
     story.append(t_fin)
     story.append(Spacer(1, 10))
 
-    # Carbon Emissions
-    story.append(Paragraph("3. GHG Carbon Footprint (Scope 1 & 2)", heading_style))
+    story.append(Paragraph("4. GHG Carbon Footprint (Scope 1 & 2)", heading_style))
     ghg_data = [
         ["Emission Scope", "Footprint (tCO2e)"],
         ["Scope 1 (Direct Fuel)", f"{scope1:.2f} tCO2e"],
@@ -166,15 +237,16 @@ def generate_pdf_report(factory_name, reporting_month, production_kg, water_kpi,
     return buffer
 
 # ----------------------------------------------------
-# 4. APP TABS & INTERFACE
+# 5. APP TABS & INTERFACE
 # ----------------------------------------------------
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "💧 Water & Energy", 
     "🧪 ETP & Waste", 
     "💰 Cost & Savings",
     "🌍 GHG Climate", 
-    "📄 PDF Audit Report",
-    "📊 Historical Analytics"
+    "🏆 Higg FEM Audit Report",
+    "📊 Historical Analytics",
+    "🧮 What-If ROI Calculator"
 ])
 
 # Tab 1: Water & Energy
@@ -213,6 +285,9 @@ with tab2:
     bod_efficiency = ((influent_bod - effluent_bod) / influent_bod) * 100
     st.metric("⚙️ COD Removal Efficiency", f"{cod_efficiency:.1f} %")
 
+# Calculate Compliance Data
+comp_data = calculate_compliance_scores(water_kpi, energy_kpi_kwh, cod_efficiency, bod_efficiency)
+
 # Tab 3: Cost & Savings
 with tab3:
     st.subheader("💰 Financial Savings Engine")
@@ -235,9 +310,22 @@ with tab4:
     total_ghg_mt = scope_1_mt + scope_2_mt
     st.metric("🌱 Total Carbon Emissions", f"{total_ghg_mt:.2f} tCO₂e")
 
-# Tab 5: PDF Audit Report & Database Save
+# Tab 5: PDF Audit Report & Higg FEM Scorecard
 with tab5:
-    st.subheader("📄 TexPulse Professional PDF Audit Report")
+    st.subheader("🏆 Higg FEM 4.0 & ZDHC Compliance Audit Center")
+    
+    sc1, sc2, sc3, sc4 = st.columns(4)
+    with sc1:
+        st.metric("Higg Overall Score", f"{comp_data['overall_score']} / 100", comp_data['overall_badge'])
+    with sc2:
+        st.metric("Water Rating", comp_data['water_level'].split()[0], f"{comp_data['water_score']} pts")
+    with sc3:
+        st.metric("Energy Rating", comp_data['energy_level'].split()[0], f"{comp_data['energy_score']} pts")
+    with sc4:
+        st.metric("Wastewater Status", comp_data['etp_status'].split()[0], f"{comp_data['etp_score']} pts")
+
+    st.divider()
+
     factory_name = st.text_input("Factory Name", value="Paramount Textile PLC")
     reporting_month = st.selectbox("Reporting Month", ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"])
     
@@ -268,16 +356,16 @@ with tab5:
         pdf_bytes = generate_pdf_report(
             factory_name, reporting_month, production_kg, water_kpi, energy_kpi_kwh,
             cod_efficiency, bod_efficiency, monthly_savings, yearly_savings,
-            scope_1_mt, scope_2_mt, total_ghg_mt
+            scope_1_mt, scope_2_mt, total_ghg_mt, comp_data
         )
         st.download_button(
-            label="📥 Download PDF Audit Report",
+            label="📥 Download Higg FEM PDF Audit Report",
             data=pdf_bytes,
-            file_name=f"TexPulse_Audit_{factory_name.replace(' ', '_')}.pdf",
+            file_name=f"TexPulse_HiggAudit_{factory_name.replace(' ', '_')}.pdf",
             mime="application/pdf"
         )
 
-# Tab 6: Historical Analytics & Trend Dashboard
+# Tab 6: Historical Analytics
 with tab6:
     st.subheader("📊 Historical Analytics & Performance Dashboard")
     st.caption("Live data retrieved directly from Supabase Cloud Database")
@@ -286,16 +374,14 @@ with tab6:
         st.error("🔴 Database Disconnected. Please configure Streamlit Secrets.")
     else:
         try:
-            # Fetch all records from factory_records table
             response = supabase.table("factory_records").select("*").order("id", desc=False).execute()
             records = response.data
 
             if not records:
-                st.info("ℹ️ No historical records found in the database. Save some records from the PDF Audit Report tab first!")
+                st.info("ℹ️ No historical records found in the database. Save some records first!")
             else:
                 df = pd.DataFrame(records)
 
-                # Filter options
                 factories = ["All Factories"] + list(df["factory_name"].unique())
                 selected_factory = st.selectbox("🏢 Filter by Factory", factories)
 
@@ -304,7 +390,6 @@ with tab6:
                 else:
                     filtered_df = df.copy()
 
-                # Executive Summary Metrics
                 st.markdown("### 📈 Executive Summary")
                 m1, m2, m3, m4 = st.columns(4)
                 with m1:
@@ -321,9 +406,7 @@ with tab6:
 
                 st.divider()
 
-                # Trend Charts
                 st.markdown("### 📉 Resource & Performance Trends")
-                
                 c_chart1, c_chart2 = st.columns(2)
                 
                 with c_chart1:
@@ -338,31 +421,14 @@ with tab6:
                         chart_energy = filtered_df[["reporting_month", "energy_kpi"]].set_index("reporting_month")
                         st.line_chart(chart_energy)
 
-                c_chart3, c_chart4 = st.columns(2)
-                
-                with c_chart3:
-                    st.markdown("#### 💰 Monthly Financial Savings (BDT)")
-                    if "reporting_month" in filtered_df and "monthly_savings" in filtered_df:
-                        chart_savings = filtered_df[["reporting_month", "monthly_savings"]].set_index("reporting_month")
-                        st.bar_chart(chart_savings)
-
-                with c_chart4:
-                    st.markdown("#### 🌱 Carbon Footprint (tCO₂e)")
-                    if "reporting_month" in filtered_df and "total_ghg" in filtered_df:
-                        chart_ghg = filtered_df[["reporting_month", "total_ghg"]].set_index("reporting_month")
-                        st.area_chart(chart_ghg)
-
                 st.divider()
 
-                # Raw Data Table & CSV Download
                 st.markdown("### 📋 Historical Audit Data Table")
-                
                 display_cols = ["id", "factory_name", "reporting_month", "production_kg", "water_kpi", "energy_kpi", "monthly_savings", "total_ghg", "user_email"]
                 available_cols = [c for c in display_cols if c in filtered_df.columns]
                 
                 st.dataframe(filtered_df[available_cols], use_container_width=True)
 
-                # Export to CSV
                 csv_data = filtered_df[available_cols].to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 Export Historical Data to CSV",
@@ -373,3 +439,102 @@ with tab6:
 
         except Exception as e:
             st.error(f"❌ Error loading analytics: {e}")
+
+# Tab 7: What-If ROI & Payback Calculator
+with tab7:
+    st.subheader("🧮 What-If Green Technology ROI & Payback Calculator")
+    st.caption("Simulate payback periods and financial returns on sustainability investments")
+
+    # Technology Presets
+    preset = st.selectbox(
+        "💡 Select Green Technology Preset (or Custom Input)",
+        [
+            "Custom Calculation",
+            "☀️ Rooftop Solar System (500 kWp)",
+            "♨️ Boiler Economizer & Waste Heat Recovery",
+            "💧 RO Water Recycling Plant",
+            "⚡ Variable Frequency Drives (VFD) Setup"
+        ]
+    )
+
+    # Set default values based on preset
+    def_capex = 4500000.0
+    def_monthly_sav = 180000.0
+    def_maint = 50000.0
+    def_years = 10
+
+    if preset == "☀️ Rooftop Solar System (500 kWp)":
+        def_capex = 35000000.0
+        def_monthly_sav = 550000.0
+        def_maint = 200000.0
+        def_years = 15
+    elif preset == "♨️ Boiler Economizer & Waste Heat Recovery":
+        def_capex = 4500000.0
+        def_monthly_sav = 180000.0
+        def_maint = 50000.0
+        def_years = 8
+    elif preset == "💧 RO Water Recycling Plant":
+        def_capex = 8000000.0
+        def_monthly_sav = 280000.0
+        def_maint = 120000.0
+        def_years = 10
+    elif preset == "⚡ Variable Frequency Drives (VFD) Setup":
+        def_capex = 2500000.0
+        def_monthly_sav = 90000.0
+        def_maint = 30000.0
+        def_years = 7
+
+    st.markdown("### 📥 Investment & Savings Inputs")
+    col_roi1, col_roi2 = st.columns(2)
+    with col_roi1:
+        capex = st.number_input("Capital Investment / Equipment Cost (CAPEX in BDT)", min_value=1000.0, value=def_capex, step=100000.0)
+        monthly_sav = st.number_input("Estimated Monthly Operational Savings (BDT)", min_value=0.0, value=def_monthly_sav, step=10000.0)
+    with col_roi2:
+        annual_maint = st.number_input("Annual Maintenance Cost (BDT)", min_value=0.0, value=def_maint, step=10000.0)
+        project_lifetime = st.slider("Project Lifetime (Years)", min_value=1, max_value=20, value=def_years)
+
+    # Financial Calculations
+    annual_gross_sav = monthly_sav * 12
+    annual_net_sav = annual_gross_sav - annual_maint
+
+    st.divider()
+
+    if annual_net_sav > 0:
+        payback_years = capex / annual_net_sav
+        payback_months = payback_years * 12
+        annual_roi = (annual_net_sav / capex) * 100
+        total_lifetime_profit = (annual_net_sav * project_lifetime) - capex
+
+        st.markdown("### 🎯 Investment Return Summary")
+        r1, r2, r3, r4 = st.columns(4)
+        with r1:
+            st.metric("Payback Period", f"{payback_months:.1f} Months", f"{payback_years:.1f} Years")
+        with r2:
+            st.metric("Annual ROI (%)", f"{annual_roi:.1f} %")
+        with r3:
+            st.metric("Annual Net Savings", f"৳ {annual_net_sav:,.0f}")
+        with r4:
+            st.metric("Net Lifetime Profit", f"৳ {total_lifetime_profit:,.0f}")
+
+        st.divider()
+
+        # Cumulative Cash Flow Line Chart
+        st.markdown("### 📈 Cumulative Cash Flow & Break-Even Timeline")
+        
+        cash_flow_list = []
+        cum_cash = -capex
+        cash_flow_list.append({"Year": "Year 0 (CAPEX)", "Cumulative Cashflow (BDT)": cum_cash})
+
+        for y in range(1, project_lifetime + 1):
+            cum_cash += annual_net_sav
+            cash_flow_list.append({"Year": f"Year {y}", "Cumulative Cashflow (BDT)": cum_cash})
+
+        df_cf = pd.DataFrame(cash_flow_list).set_index("Year")
+        st.line_chart(df_cf)
+
+        if payback_years <= project_lifetime:
+            st.success(f"✅ **Highly Viable Investment!** The technology pays for itself in **{payback_months:.1f} months** ({payback_years:.1f} years). Total net profit over {project_lifetime} years will be **৳ {total_lifetime_profit:,.0f}**.")
+        else:
+            st.warning(f"⚠️ **Long Payback Notice:** Payback period ({payback_years:.1f} years) exceeds project lifetime ({project_lifetime} years).")
+    else:
+        st.error("❌ Annual maintenance cost is higher than or equal to annual savings. Negative or zero financial return.")
